@@ -23,11 +23,25 @@ def midpoint(p1: Tuple[float, float], p2: Tuple[float, float]) -> Tuple[float, f
 def extract_body_proportions(
     image_path: str,
     height_cm: Optional[float] = None,
-    weight_kg: Optional[float] = None
-) -> BodyProfile:
+    weight_kg: Optional[float] = None,
+    return_landmarks: bool = False,
+):
     """
     Extracts key body landmarks from a user image, computes relative body proportions,
     and estimates body size (XS-XL) with BMI calibration.
+
+    Args:
+        image_path: Path to the input image.
+        height_cm: Optional height in cm for BMI calibration.
+        weight_kg: Optional weight in kg for BMI calibration.
+        return_landmarks: If True, returns (BodyProfile, landmarks_dict) tuple.
+                          landmarks_dict has pixel-coordinate keys:
+                          left_shoulder, right_shoulder, left_hip, right_hip,
+                          left_wrist, right_wrist.
+
+    Returns:
+        BodyProfile (when return_landmarks=False)
+        or (BodyProfile, landmarks_dict) when return_landmarks=True.
     """
     if not os.path.exists(image_path):
         raise ValueError(f"Image path does not exist: {image_path}")
@@ -146,16 +160,28 @@ def extract_body_proportions(
         else:
             estimated_size = "XL"
 
-        # 7. Return BodyProfile
-        return BodyProfile(
+        profile = BodyProfile(
             shoulder_width_ratio=shoulder_width_ratio,
             torso_length_ratio=torso_length_ratio,
             sleeve_length_ratio=sleeve_length_ratio,
             neck_width_ratio=neck_width_ratio,
             estimated_size=estimated_size,
             height_cm=height_cm,
-            weight_kg=weight_kg
+            weight_kg=weight_kg,
         )
+
+        if return_landmarks:
+            landmarks_dict = {
+                "left_shoulder":  left_shoulder,
+                "right_shoulder": right_shoulder,
+                "left_hip":       left_hip,
+                "right_hip":      right_hip,
+                "left_wrist":     left_wrist,
+                "right_wrist":    right_wrist,
+            }
+            return profile, landmarks_dict
+
+        return profile
 
 
 def draw_landmarks_debug(image_path: str, output_path: str) -> None:
