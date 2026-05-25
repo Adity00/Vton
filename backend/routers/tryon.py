@@ -185,25 +185,23 @@ def tryon(
         # STEP 7: VTON model (OOTDiffusion or overlay fallback)
         # ----------------------------------------------------------------
         t0 = time.time()
-        vton_tmp, used_fallback = run_vton(person_tmp, garment_tmp)
+        vton_tmp, used_fallback = run_vton(user_image_url, garment.garment_image_url)
         processing_mode = "fallback" if used_fallback else "ai"
         timings["vton_model"] = round(time.time() - t0, 2)
 
         # ----------------------------------------------------------------
-        # STEP 8: Compositing (paste face/arms on top of VTON result)
+        # STEP 8: Compositing (only when AI model ran, not fallback)
         # ----------------------------------------------------------------
         t0 = time.time()
-        composited = composite_with_layering(person_tmp, vton_tmp, landmarks)
-        fd, composite_tmp = tempfile.mkstemp(suffix=".jpg", prefix="composite_")
-        os.close(fd)
-        save_image(composited, composite_tmp)
+        # IDM-VTON preserves everything natively, so we just pass the result through!
+        final_image_path = vton_tmp
         timings["compositing"] = round(time.time() - t0, 2)
 
         # ----------------------------------------------------------------
         # STEP 9: Upload result to Cloudinary
         # ----------------------------------------------------------------
         t0 = time.time()
-        result_image_url = upload_image(composite_tmp, folder="vton/results")
+        result_image_url = upload_image(final_image_path, folder="vton/results")
         timings["upload_result"] = round(time.time() - t0, 2)
 
         # ----------------------------------------------------------------
@@ -227,33 +225,9 @@ def tryon(
         timings["similar_items"] = round(time.time() - t0, 2)
 
         # ----------------------------------------------------------------
-        # STEP 11: Save TryOnResult to MongoDB
-        # ----------------------------------------------------------------
-        t0 = time.time()
-        history_col = get_collection("tryon_results")
-        history_doc = {
-            "session_id": session_id,
-            "user_image_url": user_image_url,
-            "garment_id": garment_id,
-            "result_image_url": result_image_url,
-            "size_recommendation": fit_result.recommended_size,
-            "fit_label": fit_result.fit_label,
-            "body_proportions": {
-                "shoulder_width_ratio": body_profile.shoulder_width_ratio,
-                "torso_length_ratio": body_profile.torso_length_ratio,
-                "sleeve_length_ratio": body_profile.sleeve_length_ratio,
-                "estimated_size": body_profile.estimated_size,
-            },
-            "processing_mode": processing_mode,
-            "created_at": datetime.now(),
-        }
-        history_col.insert_one(history_doc)
-        timings["save_history"] = round(time.time() - t0, 2)
-
-        # ----------------------------------------------------------------
         # Build response
         # ----------------------------------------------------------------
-        return {
+        response_data = {
             "session_id": session_id,
             "result_image_url": result_image_url,
             "original_image_url": user_image_url,
@@ -285,6 +259,18 @@ def tryon(
             "processing_mode": processing_mode,
             "timings_ms": {k: f"{v}s" for k, v in timings.items()},
         }
+
+        # ----------------------------------------------------------------
+        # STEP 11: Save TryOnResult to MongoDB
+        # ----------------------------------------------------------------
+        t0 = time.time()
+        history_col = get_collection("tryon_results")
+        history_doc = response_data.copy()
+        history_doc["created_at"] = datetime.now()
+        history_col.insert_one(history_doc)
+        response_data["timings_ms"]["save_history"] = f"{round(time.time() - t0, 2)}s"
+
+        return response_data
 
     finally:
         # Always clean up all temp files regardless of success or failure

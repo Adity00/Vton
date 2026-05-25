@@ -10,18 +10,10 @@ router = APIRouter()
 
 def _doc_to_response(doc: dict) -> dict:
     """Convert a raw MongoDB tryon_result document to a serializable dict."""
-    return {
-        "id": str(doc["_id"]),
-        "session_id": doc["session_id"],
-        "user_image_url": doc.get("user_image_url", ""),
-        "garment_id": doc.get("garment_id", ""),
-        "result_image_url": doc.get("result_image_url", ""),
-        "size_recommendation": doc.get("size_recommendation", ""),
-        "fit_label": doc.get("fit_label", ""),
-        "body_proportions": doc.get("body_proportions", {}),
-        "processing_mode": doc.get("processing_mode", "unknown"),
-        "created_at": doc.get("created_at", datetime.now()).isoformat(),
-    }
+    doc["id"] = str(doc.pop("_id"))
+    if "created_at" in doc and isinstance(doc["created_at"], datetime):
+        doc["created_at"] = doc["created_at"].isoformat()
+    return doc
 
 
 # ---------------------------------------------------------------------------

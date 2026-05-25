@@ -7,7 +7,23 @@ async function handleResponse<T>(res: Response): Promise<T> {
     const error = await res.json().catch(() => ({ detail: res.statusText }))
     throw new Error(error.detail || 'API request failed')
   }
-  return res.json()
+  const data = await res.json()
+  // Recursively map `id` to `_id` for Garment objects since backend uses `id`
+  const mapIds = (obj: any): any => {
+    if (Array.isArray(obj)) return obj.map(mapIds)
+    if (obj !== null && typeof obj === 'object') {
+      const newObj = { ...obj }
+      if ('id' in newObj && !('_id' in newObj)) {
+        newObj._id = newObj.id
+      }
+      for (const key in newObj) {
+        newObj[key] = mapIds(newObj[key])
+      }
+      return newObj
+    }
+    return obj
+  }
+  return mapIds(data)
 }
 
 export async function getGarments(category?: string, fit_type?: string): Promise<Garment[]> {

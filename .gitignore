@@ -28,3 +28,22 @@ frontend/yarn-error.log*
 .idea/
 .DS_Store
 Thumbs.db
+
+# Local testing and temporary image/script files
+*.webp
+*.jpg
+*.png
+backend/test_*.py
+backend/fetch_*.py
+backend/catvton_pipeline.py
+backend/catvton_test/
+backend/cloth_masker.py
+backend/inference.py
+backend/pipeline.py
+backend/pipeline_full.py
+backend/search_hf.py
+backend/wait_health.py
+backend/readme.md
+backend/readme.txt
+backend/seed_garments.py
+

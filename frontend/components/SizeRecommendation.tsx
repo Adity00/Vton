@@ -17,12 +17,15 @@ export default function SizeRecommendation({ fitResult }: SizeRecommendationProp
   const [scoreWidth, setScoreWidth] = useState(0)
 
   useEffect(() => {
-    const t = setTimeout(() => setScoreWidth(fitResult.fit_score * 100), 100)
+    const t = setTimeout(() => setScoreWidth((fitResult?.fit_score || 0) * 100), 100)
     return () => clearTimeout(t)
-  }, [fitResult.fit_score])
+  }, [fitResult?.fit_score])
 
-  const fitColor = FIT_COLORS[fitResult.fit_label.toLowerCase()] || '#0a0a0a'
-  const scorePercent = Math.round(fitResult.fit_score * 100)
+  const safeFitLabel = fitResult?.fit_label || 'Unknown'
+  const safeFitScore = fitResult?.fit_score || 0
+
+  const fitColor = FIT_COLORS[safeFitLabel.toLowerCase()] || 'var(--gray-500)'
+  const scorePercent = Math.round(safeFitScore * 100)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
@@ -40,7 +43,7 @@ export default function SizeRecommendation({ fitResult }: SizeRecommendationProp
               color: 'var(--black)',
             }}
           >
-            {fitResult.recommended_size}
+            {fitResult?.recommended_size || 'N/A'}
           </span>
           <span style={{ fontSize: '0.875rem', color: 'var(--gray-400)', lineHeight: 1.4 }}>
             based on your<br />body proportions
@@ -65,7 +68,7 @@ export default function SizeRecommendation({ fitResult }: SizeRecommendationProp
             borderRadius: '3px',
           }}
         >
-          {fitResult.fit_label}
+          {safeFitLabel}
         </div>
 
         <div style={{ fontSize: '0.8125rem', color: 'var(--gray-500)', marginBottom: '0.5rem' }}>
@@ -80,7 +83,7 @@ export default function SizeRecommendation({ fitResult }: SizeRecommendationProp
       <div>
         <div className="section-title">Fit Notes</div>
         <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
-          {fitResult.fit_notes.map((note, i) => (
+          {(fitResult?.fit_notes || []).map((note, i) => (
             <li
               key={i}
               style={{ display: 'flex', alignItems: 'flex-start', gap: '0.625rem', fontSize: '0.875rem', color: 'var(--gray-700)' }}

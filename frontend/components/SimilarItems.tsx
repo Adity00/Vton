@@ -11,7 +11,7 @@ interface SimilarItemsProps {
 export default function SimilarItems({ garments }: SimilarItemsProps) {
   const router = useRouter()
 
-  if (!garments.length) return null
+  if (!garments?.length) return null
 
   return (
     <div>

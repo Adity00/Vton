@@ -8,6 +8,7 @@ interface GarmentCardProps {
   isSelected: boolean
   onClick: () => void
   compact?: boolean
+  priority?: boolean
 }
 
 const FIT_COLORS: Record<string, string> = {
@@ -16,7 +17,7 @@ const FIT_COLORS: Record<string, string> = {
   oversized: 'pill-orange',
 }
 
-export default function GarmentCard({ garment, isSelected, onClick, compact = false }: GarmentCardProps) {
+export default function GarmentCard({ garment, isSelected, onClick, compact = false, priority = false }: GarmentCardProps) {
   return (
     <div
       role="button"
@@ -36,6 +37,7 @@ export default function GarmentCard({ garment, isSelected, onClick, compact = fa
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
             style={{ objectFit: 'cover' }}
             className="garment-card-img"
+            priority={priority}
           />
         ) : (
           <div

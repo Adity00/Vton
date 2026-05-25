@@ -19,13 +19,10 @@ const CATEGORY_LABELS: Record<string, string> = {
   shirt: 'Shirts',
 }
 
-function getOrCreateSessionId(): string {
+function generateSessionId(): string {
   if (typeof window === 'undefined') return ''
-  let id = localStorage.getItem('vton_session_id')
-  if (!id) {
-    id = 'sess_' + Math.random().toString(36).slice(2) + Date.now().toString(36)
-    localStorage.setItem('vton_session_id', id)
-  }
+  const id = 'sess_' + Math.random().toString(36).slice(2) + Date.now().toString(36)
+  localStorage.setItem('vton_session_id', id)
   return id
 }
 
@@ -84,7 +81,7 @@ function HomeContent() {
 
   const handleTryOn = async () => {
     if (!selectedFile || !selectedGarment) return
-    const sessionId = getOrCreateSessionId()
+    const sessionId = generateSessionId()
     setIsLoading(true)
     try {
       await runTryOn(
@@ -314,12 +311,13 @@ function HomeContent() {
                   </div>
                 ) : (
                   <div className="garment-grid">
-                    {garments.map(g => (
+                    {garments.map((g, i) => (
                       <GarmentCard
                         key={g._id}
                         garment={g}
                         isSelected={selectedGarment?._id === g._id}
                         onClick={() => setSelectedGarment(prev => prev?._id === g._id ? null : g)}
+                        priority={i < 4}
                       />
                     ))}
                   </div>

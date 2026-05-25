@@ -135,7 +135,7 @@ export default function TryOnPage() {
                 letterSpacing: '-0.03em',
               }}
             >
-              {result.garment.name}
+              {result.garment?.name || 'Garment'}
             </h1>
           </div>
 

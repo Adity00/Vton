@@ -106,13 +106,13 @@ export default function HistoryPage() {
                   }}
                   onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.01)')}
                   onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
-                  aria-label={`View try-on result for ${item.garment.name}`}
+                  aria-label={`View try-on result for ${item.garment?.name || 'Garment'}`}
                 >
                   <div style={{ position: 'relative', aspectRatio: '3/4', background: 'var(--gray-100)' }}>
                     {item.result_image_url && (
                       <Image
                         src={item.result_image_url}
-                        alt={`Try-on result: ${item.garment.name}`}
+                        alt={`Try-on result: ${item.garment?.name || 'Garment'}`}
                         fill
                         sizes="(max-width: 640px) 50vw, 33vw"
                         style={{ objectFit: 'cover' }}
@@ -139,11 +139,11 @@ export default function HistoryPage() {
                   </div>
                   <div style={{ padding: '0.875rem' }}>
                     <div style={{ fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.25rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {item.garment.name}
+                      {item.garment?.name || 'Garment'}
                     </div>
                     <div style={{ display: 'flex', gap: '0.375rem', alignItems: 'center' }}>
-                      <span className="pill pill-gray">{item.fit_result.recommended_size}</span>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--gray-400)' }}>{item.fit_result.fit_label}</span>
+                      <span className="pill pill-gray">{item.fit_result?.recommended_size || 'N/A'}</span>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--gray-400)' }}>{item.fit_result?.fit_label || 'Unknown fit'}</span>
                     </div>
                   </div>
                 </button>

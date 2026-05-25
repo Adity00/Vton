@@ -97,7 +97,7 @@ export default function CatalogPage() {
             </div>
           ) : (
             <div className="garment-grid">
-              {garments.map(g => (
+              {garments.map((g, i) => (
                 <button
                   key={g._id}
                   onClick={() => openDrawer(g)}
@@ -124,6 +124,7 @@ export default function CatalogPage() {
                         fill
                         sizes="(max-width: 640px) 50vw, 25vw"
                         style={{ objectFit: 'cover' }}
+                        priority={i < 8}
                       />
                     )}
                   </div>
