@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from routers import tryon, garments, body, history
+from routers import tryon, garments, body, history, auth, users
 from database.connection import check_connection
 
 
@@ -25,6 +25,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth.router, prefix="/auth", tags=["auth"])
+app.include_router(users.router, prefix="/users", tags=["users"])
 app.include_router(tryon.router, prefix="/tryon", tags=["tryon"])
 app.include_router(garments.router, prefix="/garments", tags=["garments"])
 app.include_router(body.router, prefix="/analyze-body", tags=["body"])

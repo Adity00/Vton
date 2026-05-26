@@ -8,7 +8,8 @@ from typing import Optional
 
 import httpx
 from bson import ObjectId
-from fastapi import APIRouter, Form, HTTPException, UploadFile, File
+from fastapi import APIRouter, Form, HTTPException, UploadFile, File, Depends
+from dependencies.auth import get_current_user_id
 
 from database.connection import get_collection
 from services.body_analysis import extract_body_proportions
@@ -88,11 +89,12 @@ def _garment_doc_to_model(doc: dict):
 
 @router.post("")
 def tryon(
-    person_image: UploadFile = File(..., description="Front-facing photo of the person"),
     garment_id: str = Form(..., description="MongoDB _id of the garment"),
+    person_image: Optional[UploadFile] = File(None, description="Front-facing photo of the person"),
+    saved_photo_url: Optional[str] = Form(default=None),
     height_cm: Optional[float] = Form(default=None),
     weight_kg: Optional[float] = Form(default=None),
-    session_id: Optional[str] = Form(default=None),
+    user_id: str = Depends(get_current_user_id)
 ):
     """
     Full virtual try-on pipeline:
@@ -109,9 +111,6 @@ def tryon(
       11. Clean up all temp files
     """
 
-    if not session_id:
-        session_id = str(uuid.uuid4())
-
     # Paths to clean up in finally block
     person_tmp      = None
     garment_tmp     = None
@@ -119,21 +118,26 @@ def tryon(
     composite_tmp   = None
 
     timings: dict = {}
+    
+    if not person_image and not saved_photo_url:
+        raise HTTPException(status_code=400, detail="Either person_image or saved_photo_url is required")
 
     try:
         # ----------------------------------------------------------------
-        # STEP 1: Save person image to temp file
+        # STEP 1 & 2: Get user image URL and save temp copy
         # ----------------------------------------------------------------
         t0 = time.time()
-        person_tmp = _save_upload_to_temp(person_image, "person_")
-        timings["save_upload"] = round(time.time() - t0, 2)
-
-        # ----------------------------------------------------------------
-        # STEP 2: Upload person image to Cloudinary (original storage)
-        # ----------------------------------------------------------------
-        t0 = time.time()
-        user_image_url = upload_image(person_tmp, folder="vton/user_photos")
-        timings["upload_person"] = round(time.time() - t0, 2)
+        if person_image:
+            person_tmp = _save_upload_to_temp(person_image, "person_")
+            timings["save_upload"] = round(time.time() - t0, 2)
+            t0 = time.time()
+            user_image_url = upload_image(person_tmp, folder="vton/user_photos")
+            timings["upload_person"] = round(time.time() - t0, 2)
+        else:
+            user_image_url = saved_photo_url
+            person_tmp = _download_to_temp(saved_photo_url, "person_")
+            timings["save_upload"] = 0.0
+            timings["upload_person"] = 0.0
 
         # ----------------------------------------------------------------
         # STEP 3: Fetch garment from MongoDB
@@ -228,7 +232,7 @@ def tryon(
         # Build response
         # ----------------------------------------------------------------
         response_data = {
-            "session_id": session_id,
+            "user_id": user_id,
             "result_image_url": result_image_url,
             "original_image_url": user_image_url,
             "garment": {

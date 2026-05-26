@@ -53,25 +53,40 @@ export async function analyzeBody(
 }
 
 export async function runTryOn(
-  personImage: File,
   garmentId: string,
-  sessionId: string,
+  token: string,
+  personImage?: File,
+  savedPhotoUrl?: string,
   height?: number,
   weight?: number
 ): Promise<TryOnResponse> {
   const formData = new FormData()
-  formData.append('person_image', personImage)
   formData.append('garment_id', garmentId)
-  formData.append('session_id', sessionId)
+  if (personImage) formData.append('person_image', personImage)
+  if (savedPhotoUrl) formData.append('saved_photo_url', savedPhotoUrl)
   if (height) formData.append('height_cm', String(height))
   if (weight) formData.append('weight_kg', String(weight))
-  const res = await fetch(`${API_URL}/tryon`, { method: 'POST', body: formData })
+  
+  const res = await fetch(`${API_URL}/tryon`, { 
+    method: 'POST', 
+    headers: { 'Authorization': `Bearer ${token}` },
+    body: formData 
+  })
   return handleResponse<TryOnResponse>(res)
 }
 
-export async function getHistory(sessionId: string): Promise<TryOnResponse[]> {
-  const res = await fetch(`${API_URL}/history/${sessionId}`)
+export async function getHistory(token: string): Promise<TryOnResponse[]> {
+  const res = await fetch(`${API_URL}/history`, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  })
   return handleResponse<TryOnResponse[]>(res)
+}
+
+export async function getTryOnResult(id: string, token: string): Promise<TryOnResponse> {
+  const res = await fetch(`${API_URL}/history/${id}`, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  })
+  return handleResponse<TryOnResponse>(res)
 }
 
 export async function uploadGarment(formData: FormData): Promise<Garment> {

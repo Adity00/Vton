@@ -6,30 +6,26 @@ import { useRouter } from 'next/navigation'
 import Navbar from '@/components/Navbar'
 import { getHistory } from '@/lib/api'
 import { TryOnResponse } from '@/lib/types'
-
-function getSessionId(): string {
-  if (typeof window === 'undefined') return ''
-  return localStorage.getItem('vton_session_id') || ''
-}
+import { useAuth } from '@/lib/authContext'
 
 export default function HistoryPage() {
   const router = useRouter()
+  const { user, token, isLoading: authLoading } = useAuth()
   const [history, setHistory] = useState<TryOnResponse[]>([])
   const [loading, setLoading] = useState(true)
-  const [sessionId, setSessionId] = useState('')
 
   useEffect(() => {
-    const id = getSessionId()
-    setSessionId(id)
-    if (!id) {
-      setLoading(false)
+    if (authLoading) return
+    if (!token) {
+      router.push('/login')
       return
     }
-    getHistory(id)
+    
+    getHistory(token)
       .then(setHistory)
       .catch(() => setHistory([]))
       .finally(() => setLoading(false))
-  }, [])
+  }, [token, authLoading, router])
 
   return (
     <>
@@ -37,7 +33,7 @@ export default function HistoryPage() {
       <main>
         <div style={{ borderBottom: '1px solid var(--gray-200)', padding: '2.5rem 0 1.5rem' }}>
           <div className="container">
-            <p className="section-title">Your Session</p>
+            <p className="section-title">Your Account</p>
             <h1
               style={{
                 fontSize: 'clamp(1.5rem, 3vw, 2.5rem)',
@@ -47,11 +43,6 @@ export default function HistoryPage() {
             >
               Try-On History
             </h1>
-            {sessionId && (
-              <p style={{ fontSize: '0.75rem', color: 'var(--gray-400)', marginTop: '0.5rem', fontFamily: 'monospace' }}>
-                Session: {sessionId}
-              </p>
-            )}
           </div>
         </div>
 
@@ -72,11 +63,6 @@ export default function HistoryPage() {
                 </div>
               ))}
             </div>
-          ) : !sessionId ? (
-            <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--gray-400)' }}>
-              <p style={{ fontSize: '1rem', marginBottom: '1.5rem' }}>No session found.</p>
-              <button onClick={() => router.push('/')} className="btn btn-primary">Start a Try-On</button>
-            </div>
           ) : history.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--gray-400)' }}>
               <p style={{ fontSize: '1rem', marginBottom: '0.5rem' }}>No try-ons yet.</p>
@@ -94,8 +80,8 @@ export default function HistoryPage() {
             >
               {history.map((item, i) => (
                 <button
-                  key={item.session_id + i}
-                  onClick={() => router.push(`/try-on?session=${item.session_id}`)}
+                  key={(item.id || item.session_id || "") + i}
+                  onClick={() => router.push(`/try-on?id=${item.id || item.session_id}`)}
                   style={{
                     background: 'var(--white)',
                     border: 'none',

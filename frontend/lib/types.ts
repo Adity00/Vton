@@ -30,7 +30,8 @@ export type FitResult = {
 }
 
 export type TryOnResponse = {
-  session_id: string
+  id?: string
+  session_id?: string
   result_image_url: string
   original_image_url: string
   garment: Garment

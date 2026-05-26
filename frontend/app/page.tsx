@@ -2,6 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { useAuth } from '@/lib/authContext'
 import Navbar from '@/components/Navbar'
 import PhotoUpload from '@/components/PhotoUpload'
 import GarmentCard from '@/components/GarmentCard'
@@ -19,17 +20,14 @@ const CATEGORY_LABELS: Record<string, string> = {
   shirt: 'Shirts',
 }
 
-function generateSessionId(): string {
-  if (typeof window === 'undefined') return ''
-  const id = 'sess_' + Math.random().toString(36).slice(2) + Date.now().toString(36)
-  localStorage.setItem('vton_session_id', id)
-  return id
-}
+
 
 function HomeContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { addToast } = useToast()
+  const { user, token } = useAuth()
+  const [savedPhotoUrl, setSavedPhotoUrl] = useState<string | null>(null)
 
   const [garments, setGarments] = useState<Garment[]>([])
   const [loadingGarments, setLoadingGarments] = useState(true)
@@ -42,6 +40,10 @@ function HomeContent() {
   const [showMetrics, setShowMetrics] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const previewUrlRef = useRef<string | null>(null)
+
+  const primaryPhotoUrl = user?.saved_photos && user.saved_photos.length > 0
+    ? user.saved_photos[user.saved_photos.length - 1].url
+    : null;
 
   // Load garments
   useEffect(() => {
@@ -64,6 +66,7 @@ function HomeContent() {
 
   const handleFileSelect = useCallback((file: File) => {
     setSelectedFile(file)
+    setSavedPhotoUrl(null)
     if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current)
     const url = URL.createObjectURL(file)
     previewUrlRef.current = url
@@ -72,6 +75,7 @@ function HomeContent() {
 
   const handleClear = useCallback(() => {
     setSelectedFile(null)
+    setSavedPhotoUrl(null)
     if (previewUrlRef.current) {
       URL.revokeObjectURL(previewUrlRef.current)
       previewUrlRef.current = null
@@ -80,25 +84,31 @@ function HomeContent() {
   }, [])
 
   const handleTryOn = async () => {
-    if (!selectedFile || !selectedGarment) return
-    const sessionId = generateSessionId()
+    if (!(selectedFile || savedPhotoUrl || primaryPhotoUrl) || !selectedGarment) return
+    if (!token) {
+      addToast('Please login to try on garments', 'error')
+      router.push('/login')
+      return
+    }
     setIsLoading(true)
     try {
       await runTryOn(
-        selectedFile,
         selectedGarment._id,
-        sessionId,
-        height ? parseFloat(height) : undefined,
-        weight ? parseFloat(weight) : undefined
+        token,
+        selectedFile || undefined,
+        savedPhotoUrl || primaryPhotoUrl || undefined,
+        height ? parseFloat(height) : user?.height_cm || undefined,
+        weight ? parseFloat(weight) : user?.weight_kg || undefined
       )
-      router.push(`/try-on?session=${sessionId}`)
+      // Since it's user based now, we don't need a session ID query param to load history
+      router.push('/history')
     } catch (err) {
       addToast(err instanceof Error ? err.message : 'Try-on failed. Please try again.', 'error')
       setIsLoading(false)
     }
   }
 
-  const canTryOn = !!selectedFile && !!selectedGarment && !isLoading
+  const canTryOn = !!(selectedFile || savedPhotoUrl || primaryPhotoUrl) && !!selectedGarment && !isLoading
 
   return (
     <>
@@ -159,91 +169,118 @@ function HomeContent() {
               }}
               className="main-grid"
             >
-              {/* LEFT: Upload */}
+              {/* LEFT: Upload or Select */}
               <div>
                 <div style={{ marginBottom: '2rem' }}>
                   <p className="section-title">Step 1 — Your Photo</p>
-                  <PhotoUpload
-                    onFileSelect={handleFileSelect}
-                    previewUrl={previewUrl}
-                    onClear={handleClear}
-                  />
-
-                  {/* Optional metrics */}
-                  <div style={{ marginTop: '1rem' }}>
-                    <button
-                      onClick={() => setShowMetrics(!showMetrics)}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        cursor: 'pointer',
-                        fontSize: '0.8125rem',
-                        color: 'var(--gray-500)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.375rem',
-                        fontFamily: 'inherit',
-                        padding: 0,
-                      }}
-                    >
-                      <svg
-                        width="14"
-                        height="14"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        style={{
-                          transform: showMetrics ? 'rotate(180deg)' : 'rotate(0)',
-                          transition: 'transform 200ms',
-                        }}
-                      >
-                        <polyline points="3,5 7,9 11,5" />
-                      </svg>
-                      {showMetrics ? 'Hide' : 'Add'} height &amp; weight for better accuracy
-                    </button>
-
-                    {showMetrics && (
-                      <div
-                        style={{
-                          marginTop: '0.75rem',
-                          display: 'grid',
-                          gridTemplateColumns: '1fr 1fr',
-                          gap: '0.75rem',
-                        }}
-                      >
-                        <div>
-                          <label className="label" htmlFor="height-input">Height (cm)</label>
-                          <input
-                            id="height-input"
-                            type="number"
-                            className="input"
-                            placeholder="175"
-                            value={height}
-                            onChange={e => setHeight(e.target.value)}
-                            min={100}
-                            max={250}
-                          />
-                        </div>
-                        <div>
-                          <label className="label" htmlFor="weight-input">Weight (kg)</label>
-                          <input
-                            id="weight-input"
-                            type="number"
-                            className="input"
-                            placeholder="70"
-                            value={weight}
-                            onChange={e => setWeight(e.target.value)}
-                            min={30}
-                            max={250}
-                          />
-                        </div>
+                  
+                  {primaryPhotoUrl && !previewUrl ? (
+                    <div style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
+                      <p style={{ fontSize: '0.875rem', color: 'var(--gray-500)', marginBottom: '1rem' }}>Using your profile photo:</p>
+                      <div style={{ display: 'inline-block', position: 'relative' }}>
+                        <img 
+                          src={primaryPhotoUrl}
+                          alt="Profile"
+                          style={{ 
+                            width: '100%', maxWidth: '280px', aspectRatio: '3/4', objectFit: 'cover', borderRadius: '1rem', 
+                            border: '1px solid var(--gray-200)', boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
+                          }}
+                        />
                       </div>
-                    )}
-                  </div>
+                      <div style={{ marginTop: '1rem' }}>
+                        <button 
+                          className="btn btn-ghost btn-sm"
+                          onClick={() => router.push('/profile')}
+                        >
+                          Change Photo or Details in Profile
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <PhotoUpload
+                        onFileSelect={handleFileSelect}
+                        previewUrl={previewUrl}
+                        onClear={handleClear}
+                      />
+
+                      {/* Optional metrics */}
+                      <div style={{ marginTop: '1rem' }}>
+                        <button
+                          onClick={() => setShowMetrics(!showMetrics)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontSize: '0.8125rem',
+                            color: 'var(--gray-500)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.375rem',
+                            fontFamily: 'inherit',
+                            padding: 0,
+                          }}
+                        >
+                          <svg
+                            width="14"
+                            height="14"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            style={{
+                              transform: showMetrics ? 'rotate(180deg)' : 'rotate(0)',
+                              transition: 'transform 200ms',
+                            }}
+                          >
+                            <polyline points="3,5 7,9 11,5" />
+                          </svg>
+                          {showMetrics ? 'Hide' : 'Add'} height &amp; weight for better accuracy
+                        </button>
+
+                        {showMetrics && (
+                          <div
+                            style={{
+                              marginTop: '0.75rem',
+                              display: 'grid',
+                              gridTemplateColumns: '1fr 1fr',
+                              gap: '0.75rem',
+                            }}
+                          >
+                            <div>
+                              <label className="label" htmlFor="height-input">Height (cm)</label>
+                              <input
+                                id="height-input"
+                                type="number"
+                                className="input"
+                                placeholder="175"
+                                value={height}
+                                onChange={e => setHeight(e.target.value)}
+                                min={100}
+                                max={250}
+                              />
+                            </div>
+                            <div>
+                              <label className="label" htmlFor="weight-input">Weight (kg)</label>
+                              <input
+                                id="weight-input"
+                                type="number"
+                                className="input"
+                                placeholder="70"
+                                value={weight}
+                                onChange={e => setWeight(e.target.value)}
+                                min={30}
+                                max={250}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {/* Try-On button */}
-                {selectedFile && (
+                {(selectedFile || primaryPhotoUrl) && (
                   <div className="animate-fade-up">
                     {selectedGarment ? (
                       <button

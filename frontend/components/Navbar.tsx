@@ -3,10 +3,16 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
+import { useAuth } from '@/lib/authContext'
 
 export default function Navbar() {
   const pathname = usePathname()
   const [mobileOpen, setMobileOpen] = useState(false)
+  
+  // Safely get auth context since it might not be wrapped in some pages during dev
+  const authContext = useAuth()
+  const user = authContext?.user
+  const logout = authContext?.logout
 
   const links = [
     { href: '/', label: 'Try On' },
@@ -23,7 +29,7 @@ export default function Navbar() {
         </Link>
 
         {/* Desktop links */}
-        <div className="navbar-links" style={{ display: 'flex' }}>
+        <div className="navbar-links" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
           {links.map(link => (
             <Link
               key={link.href}
@@ -37,6 +43,37 @@ export default function Navbar() {
               {link.label}
             </Link>
           ))}
+          
+          <div style={{ width: '1px', height: '24px', background: 'var(--gray-200)', margin: '0 0.5rem' }}></div>
+          
+          {user ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <Link href="/profile" style={{ fontSize: '0.875rem', color: 'var(--gray-500)', textDecoration: 'none' }}>
+                Hi, {user.name || "Profile"}
+              </Link>
+              <button 
+                onClick={logout}
+                style={{ 
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  fontSize: '0.875rem', color: 'var(--gray-500)'
+                }}
+              >
+                Logout
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <Link href="/login" style={{ fontSize: '0.875rem', color: 'var(--black)', textDecoration: 'none' }}>Log In</Link>
+              <Link href="/register" style={{ 
+                fontSize: '0.875rem', 
+                background: 'var(--black)', 
+                color: 'white', 
+                padding: '0.375rem 0.75rem', 
+                borderRadius: '999px',
+                textDecoration: 'none' 
+              }}>Sign Up</Link>
+            </div>
+          )}
         </div>
 
         {/* Mobile hamburger */}

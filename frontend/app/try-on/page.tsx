@@ -6,13 +6,15 @@ import Navbar from '@/components/Navbar'
 import TryOnResult from '@/components/TryOnResult'
 import SizeRecommendation from '@/components/SizeRecommendation'
 import SimilarItems from '@/components/SimilarItems'
-import { getHistory } from '@/lib/api'
+import { getTryOnResult } from '@/lib/api'
 import { TryOnResponse } from '@/lib/types'
+import { useAuth } from '@/lib/authContext'
 
 export default function TryOnPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
-  const sessionId = searchParams.get('session') || ''
+  const { token, isLoading: authLoading } = useAuth()
+  const resultId = searchParams.get('id') || searchParams.get('session') || ''
 
   const [result, setResult] = useState<TryOnResponse | null>(null)
   const [loading, setLoading] = useState(true)
@@ -20,22 +22,23 @@ export default function TryOnPage() {
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
-    if (!sessionId) {
-      setError('No session ID provided.')
+    if (authLoading) return
+    if (!token) {
+      router.push('/login')
+      return
+    }
+    if (!resultId) {
+      setError('No result ID provided.')
       setLoading(false)
       return
     }
-    getHistory(sessionId)
-      .then(history => {
-        if (history.length === 0) {
-          setError('No try-on results found for this session.')
-        } else {
-          setResult(history[0]) // newest first
-        }
+    getTryOnResult(resultId, token)
+      .then(res => {
+        setResult(res)
       })
       .catch(err => setError(err.message || 'Failed to load results'))
       .finally(() => setLoading(false))
-  }, [sessionId])
+  }, [resultId, token, authLoading, router])
 
   const handleDownload = async () => {
     if (!result?.result_image_url) return
@@ -45,7 +48,7 @@ export default function TryOnPage() {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `vton-result-${sessionId}.jpg`
+      a.download = `vton-result-${resultId}.jpg`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
@@ -57,7 +60,7 @@ export default function TryOnPage() {
   }
 
   const handleShare = () => {
-    const url = `${window.location.origin}/try-on?session=${sessionId}`
+    const url = `${window.location.origin}/try-on?id=${resultId}`
     navigator.clipboard.writeText(url).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
